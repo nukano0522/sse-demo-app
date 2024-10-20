@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: your_password  # ルートユーザーのパスワードを設定
+      MYSQL_DATABASE: your_database       # 初期データベースを作成（オプション）
+      MYSQL_USER: your_user               # 新しいユーザーを作成（オプション）
+      MYSQL_PASSWORD: your_user_password  # 新しいユーザーのパスワード（オプション）
+    ports:
+      - "3306:3306"                       # ホストのポート3306をコンテナの3306にマッピング
+    volumes:
+      - mysql-data:/var/lib/mysql         # ボリュームマウントでデータ永続化
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend-container
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app                    # ローカルのソースコードをコンテナにバインドマウント
+      - /app/node_modules                  # node_modulesを無視することで、ホスト側の依存関係問題を防ぐ
+    depends_on:
+      - server
+    environment:
+      - CHOKIDAR_USEPOLLING=true           # Docker環境でファイル変更を検知するために必要
+      - REACT_APP_SERVER_BASE_URL=http://server:5000
+    command: ["npm", "start"]              # 開発モードでホットリロードを有効化
+    restart: always
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server-container
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app                    # ローカルのソースコードをコンテナにバインドマウント
+      - /app/node_modules                # node_modulesを無視してホストの影響を防ぐ
+    environment:
+      - CHOKIDAR_USEPOLLING=true         # Docker環境でファイル変更を検知するために必要
+    command: ["npm", "start"]            # nodemonを使ってホットリロードを有効化
+    restart: always
+
+volumes:
+  mysql-data:                             # ボリュームの定義
